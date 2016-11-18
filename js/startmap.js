@@ -51,15 +51,15 @@ var options = {
   componentRestrictions: {country: 'rw'}
 };
 
-var autocomplete = new google.maps.places.Autocomplete(input, options);*/
+var autocomplete = new google.maps.places.Autocomplete(input, options);   */
 	
 var input = document.getElementById('taxirequest_destination');
 var input2 = document.getElementById('searchbyaddress');
 var input3 = document.getElementById('taxirequest_pickup_estimate');
 
-var options = {
- componentRestrictions: {country: 'rw'}
-};
+// var options = {
+//  componentRestrictions: {country: 'rw'}
+// };
 
 autocomplete = new google.maps.places.Autocomplete(input, options);    
 autocomplete = new google.maps.places.Autocomplete(input2, options); 
@@ -113,7 +113,7 @@ navigator.geolocation.getCurrentPosition(
                 }
 			);
 pos;
-console.log('reloaded: '+pos+'');
+// console.log('reloaded: '+pos+'');
 }
 	
 var app_or_web = localStorage.getItem("app_or_web");
@@ -167,6 +167,13 @@ function displayPosition(position) {
 	lng= position.coords.longitude;
 			
             pos = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
+           //tambaram
+            //pos = new google.maps.LatLng("12.926146", "80.1144348");
+            //cmbt
+            //pos = new google.maps.LatLng("13.0702682","80.1860256");
+            //thirumangalam
+            //pos = new google.maps.LatLng("13.089499","80.196949")
+											
 			var options = {
 				zoom: 18,
                 disableDefaultUI: true,
@@ -194,14 +201,14 @@ function displayPosition(position) {
 			var distanceFromPlace;
 			function callback(results, status) {
 				document.getElementById('list_of_nearby_places').innerHTML = "";
-				console.log(results[0]);console.log("Lat"+lat);console.log("LNG"+lng);
+				// console.log(results[0]);console.log("Lat"+lat);console.log("LNG"+lng);
 				$.each(results, function( index, value ) {
 				  //alert( index + ": " + value );
 				placeLat =results[index].geometry.location.lat();
 				placeLng =results[index].geometry.location.lng();
 				distanceFromPlaceInKm= distance(lat, lng, placeLat, placeLng, 'k');
 				distanceFromPlace =	"<option value='"+Number((distanceFromPlaceInKm*1000).toFixed(1)) + " mtrs from " +results[index].name+"'>"+Number((distanceFromPlaceInKm*1000).toFixed(1)) + " mtrs from " +results[index].name+"</option>";
-				console.log(distanceFromPlace);	
+				// console.log(distanceFromPlace);	
 				$('#list_of_nearby_places').append(distanceFromPlace);	
 				});	
 							
@@ -248,7 +255,11 @@ zIndex: google.maps.Marker.MAX_ZINDEX + 1,
 			});
 	a();
 			//moveMarker( map, marker, position.coords.latitude,position.coords.longitude);
-var count=0; var markers = {}; var save_latLng = {}; var save_image = {}; var iconimage1 = {}; var calc_angle = 0; var dist_accuracy = []; var accuracy_tracker = {}; var res_count = 0;
+var count=0; var markers = {}; var save_latLng = {}; var save_image = {}; var iconimage1 = {}; var calc_angle = 0; var dist_accuracy = []; var accuracy_tracker = {}; var res_count = 0; var speed = 50; var delay = 100;
+var timerHandle = null;
+var step = 50; // 5; // metres
+var tick = 100; // milliseconds
+
 var lat; var lng; var loc; var flightPath=[];
 var polyline = null;
 		function animateCircle(line) {
@@ -266,6 +277,7 @@ var polyline = null;
 		var delay = 10; 
 		function moveMarker1(taxi_id,position,deltalat,deltalng,inc){
 			if(typeof position !== 'undefined'){
+				//console.log("===========move marker=========");
 				deltaLat = deltalat;deltaLng = deltalng;
 				position = position;
 				position[0] += deltaLat;
@@ -357,15 +369,24 @@ function saveTaxiImage(taxi_id, imgUrl){
 	localStorage.setItem('save_image', JSON.stringify(save_image));
 }
 
+function splitValues(nextSegment){
+	var regExp = /\(([^)]+)\)/;
+	var matches = regExp.exec(nextSegment);
+	return matches[1].split(",");
+}
+
 function saveDistanceAccuracy(dist, accuracy, res_count, dist_accuracy, taxi_id){
+	console.log("=====save dist accuracy============");
 	if(res_count <= 5){
 		if(accuracy > 10){
+			console.log("=========accuracy greater than 10=========");
 			if(dist_accuracy[taxi_id] === undefined){
 				dist_accuracy[taxi_id] = [];
 			}
 			dist_accuracy[taxi_id].push({"accuracy": accuracy, "distance": distance, "count": res_count});
 			//accuracy_tracker = {dist_accuracy[taxi_id]};
 			localStorage.setItem('track_accuracy', JSON.stringify(accuracy_tracker));
+			// console.log("========dist accuracy======"+ dist_accuracy[taxi_id]);
 		}
 		else if(accuracy <= 10){
 			dist_accuracy = [];
@@ -375,85 +396,390 @@ function saveDistanceAccuracy(dist, accuracy, res_count, dist_accuracy, taxi_id)
 		dist_accuracy =[];
 	}
 }
+function animate(taxi_id, prev_latlng, latlng) {
+    //console.log("============animate function============");
+    //var p = polyline.GetPointAtDistance(d);
+   // map.panTo(latlng);
+    //var lastPosn = markers[taxi_id].getPosition();
+    //markers[taxi_id].setPosition(latlng);
+    var heading = google.maps.geometry.spherical.computeHeading(prev_latlng, latlng);
+    //icon.rotation = heading;
+    angle2 = Math.floor(heading);
+		angle2 = Math.round(angle2 / 10) * 10;
+		if(angle2 >= 360) {
+			angle2 = angle2 - 360;
+			imgUrl = "taxi_icons/taxi_"+angle2+".svg";
+		}
+		else if (angle2 > 0 && angle2 < 360) {
+			imgUrl="taxi_icons/taxi_"+angle2+".svg";
+		}
+		else {
+			angle2 += 360;
+			imgUrl="taxi_icons/taxi_"+angle2+".svg";	
+		}
+    var iconimage1 = {
+			url: imgUrl, // url
+			scaledSize: new google.maps.Size(60, 60), // scaled size
+			origin: new google.maps.Point(0,0), // origin
+			anchor: new google.maps.Point(30,30),// anchor
+		};
+    markers[taxi_id].setIcon(iconimage1);
+    //updatePoly(d);
+    //function() { moveMarker1(taxi_id,position,deltalat,deltalng,inc); }, 10
+    //timerHandle = setTimeout(function() { animate(taxi_id,prev_latlng, latlng, check_loop_count); }, 10);
+}
+
+function startAnimation(taxi_id, latlng, deltalat, deltalng, position, inc) {
+	//markers[taxi_id].setPosition(prev_latlng);
+	position[0] += deltalat;
+	position[1] += deltalng;
+	//console.log("====position=====0==="+position[0]);
+	//console.log("====position=====1==="+position[1]);
+	var prev_latlng = new google.maps.LatLng(position[0], position[1]);
+	animate(taxi_id, prev_latlng, latlng);
+	markers[taxi_id].setPosition(prev_latlng);
+	//console.log("======latlng======="+latlng);
+	//console.log("========prev_latlng====="+prev_latlng);
+	if(inc!=numDeltas){
+		inc++;
+		setTimeout( function() { startAnimation(taxi_id, latlng, deltalat, deltalng, position,inc); }, 10 );
+	}
+    // eol = polyline.Distance();
+    // map.setCenter(polyline.getPath().getAt(0));
+    // marker = new google.maps.Marker({
+    //     position: polyline.getPath().getAt(0),
+    //     map: map,
+    //     icon: icon
+    // });
+
+    // poly2 = new google.maps.Polyline({
+    //     path: [polyline.getPath().getAt(0)],
+    //     strokeColor: "#0000FF",
+    //     strokeWeight: 10
+    // });
+    // map.addOverlay(poly2);
+}
+
+function animateMarker( p_lat, p_lng, taxi_id, coords, km_h)
+{
+//console.log("==========animate marker=======taxi id===="+taxi_id);
+  var target = 0;
+  var km_h = km_h || 50;
+ // coords.push([startPos[0], startPos[1]]);
+  //console.log("====coords====="+coords);
+  function goToPoint()
+  {
+    // var lat = markers[taxi_id].getPosition().lat();
+    // var lng = markers[taxi_id].getPosition().lng();
+    var lat = p_lat;
+    var lng = p_lng;
+    var step = (km_h * 1000 * delay) / 3600000; // in meters
+    //console.log("=======lat===shbhb==="+lat);
+    var dest = new google.maps.LatLng(
+    splitValues(coords[target])[0], splitValues(coords[target])[1]);
+    var distance = google.maps.geometry.spherical.computeDistanceBetween(
+    dest, markers[taxi_id].position); // in meters
+    
+    var numStep = distance / step;
+    var i = 0;
+    var deltaLat = (splitValues(coords[target])[0] - lat) / numStep;
+    var deltaLng = (splitValues(coords[target])[1] - lng) / numStep;
+    // console.log("=====deltaLat======"+deltaLat);
+    // console.log("=====deltaLng======"+deltaLng);
+    function moveMarker()
+    {
+    	var previous_lat = lat;
+      var previous_lng = lng;
+      lat += deltaLat;
+      lng += deltaLng;
+      i += step;
+
+      // angle calculation and icon replacement
+      imgUrl = replaceImage(lng, previous_lng, lat, previous_lat, angle2, taxi_id);
+    	var iconimage1 = {
+				url: imgUrl, // url
+				scaledSize: new google.maps.Size(60, 60), // scaled size
+				origin: new google.maps.Point(0,0), // origin
+				anchor: new google.maps.Point(30,30),// anchor
+			};
+			//console.log("===========iconimage1======"+imgUrl);
+			markers[taxi_id].setIcon(iconimage1);
+
+      if (i < distance)
+      {
+        markers[taxi_id].setPosition(new google.maps.LatLng(lat, lng));
+        setTimeout(moveMarker, 100);
+      }
+      else
+      {   markers[taxi_id].setPosition(dest);
+          target++;
+          if (target == coords.length){ target = 0; }
+          
+          setTimeout(goToPoint, 100);
+      }
+    }
+    moveMarker();
+  }
+  goToPoint();
+}
+
+function trackMarker(taxi_id, latlng){
+	// console.log("===========track marker========");
+	markers[taxi_id].setPosition(latlng);
+	setTimeout( function() { trackMarker(taxi_id,latlng); }, 10 );
+}
+
+function findPolylineCoords(legs, lat, lng, previous_lat, previous_lng, polyline_array, imgUrl, taxi_id, angle2, bounds){
+	console.log("=======lat===poly=="+lat+"==lng==="+lng);
+	for (i = 0; i < legs.length; i++) {
+    var steps = legs[i].steps;
+    for (j = 0; j < steps.length; j++) {
+      var nextSegment = steps[j].path;
+      delete iconimage1;
+      console.log("========nextSegment========="+nextSegment);
+      console.log("========next segment length====="+nextSegment.length);
+      for (k = 0; k < nextSegment.length; k++) {
+        polyline_array.push(nextSegment[k]);
+        bounds.extend(nextSegment[k]);
+      	if(nextSegment[k-1] != undefined){
+      		lat = splitValues(nextSegment[k])[0];
+      		lng = splitValues(nextSegment[k])[1];
+      		previous_lat = splitValues(nextSegment[k-1])[0];
+      		previous_lng = splitValues(nextSegment[k-1])[1];
+      	}
+      	else{
+      		lat = splitValues(nextSegment[k])[0];
+      		lng = splitValues(nextSegment[k])[1];
+      	}
+      	console.log("======inside for==lat=="+lat+"======lng===="+lng);
+      	imgUrl = replaceImage(lng, previous_lng, lat, previous_lat, angle2, taxi_id);
+      	var iconimage1 = {
+					url: imgUrl, // url
+					scaledSize: new google.maps.Size(60, 60), // scaled size
+					origin: new google.maps.Point(0,0), // origin
+					anchor: new google.maps.Point(30,30),// anchor
+				};
+				markers[taxi_id].setIcon(iconimage1);
+      	// console.log("=========image_url========="+imgUrl);
+      	var latlng = new google.maps.LatLng(lat, lng);
+				markers[taxi_id].setPosition(latlng);
+				console.log(nextSegment)
+      	//inc = 0;
+				// deltaLat = (lat - previous_lat)/numDeltas;
+				// console.log("==========deltaLat======"+deltaLat);
+				// deltaLng = (lng - previous_lng)/numDeltas;
+				// var position = [previous_lat, previous_lng];
+				// moveMarker1(taxi_id,position,deltaLat,deltaLng,inc);
+    //   	console.log("===lat===lng==="+lat+"===lng==="+lng);
+    //   	console.log("====previous_lat==="+previous_lat+"===previous_lng==="+previous_lng);
+    //   	var deltalat = (lat-previous_lat)/numDeltas;
+    //   	var deltalng = (lng-previous_lng)/numDeltas;
+    //   	console.log("======deltaLat====="+deltalat);
+    //   	console.log("=======deltaLng====="+deltalng);
+    //   	var position = [previous_lat, previous_lng];
+    //   	var latlng = new google.maps.LatLng(lat, lng);
+				
+				// var inc = 0;
+
+      //	startAnimation(taxi_id, latlng, deltalat, deltalng, position, inc);
+    //   	imgUrl = replaceImage(lng, previous_lng, lat, previous_lat, angle2, taxi_id);
+    //   	console.log("========image======"+imgUrl);
+    //   	var iconimage1 = {
+				// 	url: imgUrl, // url
+				// 	scaledSize: new google.maps.Size(60, 60), // scaled size
+				// 	origin: new google.maps.Point(0,0), // origin
+				// 	anchor: new google.maps.Point(30,30),// anchor
+				// };
+				// markers[taxi_id].setIcon(iconimage1);
+				// var latlng = new google.maps.LatLng(lat, lng);
+				// markers[taxi_id].setPosition(latlng);
+      }
+    }
+  }
+  //console.log("========polyline_array=========="+polyline_array);
+   //animateMarker(previous_lat, previous_lng, taxi_id, polyline_array, speed);
+ // return polyline_array;
+}
+
+//var real_time_data = [[13.096885, 80.1998152,"online",18, 33.020999908447266],[13.0968667, 80.1996074,"online",18, 25.531999588012695],[13.0969616, 80.1994994,"online",18, 34.733001708984375],[13.0971207, 80.1993224,"online",18,57.31700134277344], [13.0972792, 80.1993256,"online",18,53.37099838256836],[13.0974804, 80.1995214,"online",18,42.83300018310547],[13.0975081, 80.1996155,"online",18,20],[13.0973574, 80.1997076,30],[13.0973099, 80.1997386,"online",18,27.84700122070312],[13.0974674, 80.1999658,"online",18,31.051000595092773],[13.0973342,80.1997275,"online",18,42.104000091552734],[13.0974227,80.1996533,"online",18,33.50699996948242],[13.0975001,80.1995712,"online",18,41.53499984741211],[13.0970631,80.1992542,"online",18,40.5],[13.0971768, 80.1993828,"online",18,45.381000518739883],[13.0968632,80.1996479,"online",18,25]]
 
 window.real_time_data = [];
 
 function a(){
 	var lookup = [];		
-	$.get( "https://250taxi.com/db/journey/online_v2.php",  function( data ) {
-		if(data !="[]"){ 
-			var array = JSON.parse(data);
-			var latprev = lat; var lngprev = lng; var flightPlanCoordinates;
-			var counter = 0;
+	//$.get( "https://250taxi.com/db/journey/online_v2.php",  function( data ) {
+	$.getJSON( "real_time_datas_17_11_2016.json", function( data ) {
+		$.each(data, function(key, val){
+		var real_time_data = val;
+	 	for (var i = 0; i < real_time_data.length; i++) {
+	  	(function(i){
+	  	setTimeout(function(){
+			// if(data !="[]"){ 
+			// 	var array = JSON.parse(data);
+			// 	window.real_time_data.push(array);
+				var latprev = lat; var lngprev = lng; var flightPlanCoordinates;
+				var counter = 0;
+//var latLng_array = [[13.096966, 80.199534, 13.096966, 80.199665], [13.096966, 80.199665, 13.096942, 80.199998], [13.096942, 80.199998, 13.096903, 80.200124], [13.096903, 80.200124, 13.096822, 80.200151], [13.096822, 80.200151, 13.096699, 80.200159], [13.096699, 80.200159, 13.096568, 80.200159], [13.096568, 80.200159, 13.096388, 80.200151], [13.096388, 80.200151, 13.096331, 80.200116], [13.096331, 80.200116, 13.096341, 80.200009], [13.096341, 80.200009, 13.096341, 80.199805]];
+
+//var latLng_array = [[13.097554, 80.200671, 13.097418, 80.200022], [13.097533, 80.199368, 13.097261, 80.199239], [13.096963, 80.199679, 13.096540, 80.200140], [13.096344, 80.199858, 13.096145, 80.199348]]
+//real time data 
+//var latLng_array = [[13.096885, 80.1998152, 13.0968648, 80.1998116], [13.0968667, 80.1996074, 13.0968648, 80.1998116], [13.0969616, 80.1994994, 13.0968667, 80.1996054], [13.0971207, 80.1993224, 13.0969625, 80.1994983], [13.0972792, 80.1993256, 13.0971223, 80.1993206], [13.0974804, 80.1995214, 13.0972808, 80.1993256], [13.0975081, 80.1996155, 13.0974824, 80.1995234], [13.0973574, 80.1997076, 13.0975084, 80.1996164], [13.0973099, 80.1997386, 13.0973559, 80.1997085], [13.0974674, 80.1999658, 13.0973559, 80.1997085]];
 			/*************************** */
-			array.forEach(function(entry) {
-				delete iconimage1;
+			//array.forEach(function(entry) {
+			  // for (var i = 0; i < latLng_array.length; i++) {
+			  // (function(i){
+     //    setTimeout(function(){
+				//delete iconimage1;
 				var previous_lat;
 				var previous_lng;
 				var imgUrl;
 				var angle = 0;
-				var l = entry;
-				var loc = l.split(",");
-			 	var dist;
+				// var l = entry;
+				// var loc = l.split(",");
+				 var dist;
+				var loc = real_time_data[i];
+				var accurate_coords;
+				// lat = 13.097448; 
+				// lng = 80.203300;
 
-				lat = loc[0];
-				lng = loc[1];
+				// movement working code============
+				// console.log("========array values======"+ latLng_array[i]);
+				// lat = latLng_array[i][2];
+				// lng = latLng_array[i][3];
+				// status = "online";
+				// taxi_id = 18;
+				// accuracy = 50;
+				// driverName = "test";
+				// console.log("=====lat lng========="+lat);
+
+				lat = 13.096331;//loc[0];
+				lng = 80.199775;//loc[1];
 				status = loc[2];
 				taxi_id = loc[3];
 				accuracy = loc[4];
 				driverName = loc[5];
 				driverSurname = loc[6];
-				if( typeof markers[taxi_id] !== 'undefined' ){
+				if( typeof markers[taxi_id] !== 'undefined' && status == "online"){
+					lat = 13.096916;
+					lng = 80.199678;
 					previous_lat = markers[taxi_id].getPosition().lat();
 					previous_lng = markers[taxi_id].getPosition().lng();
-					var stored_latLng = localStorage.getItem('save_latLng');
-					parse_values = JSON.parse(stored_latLng);
+					// previous_lat = latLng_array[i][0];//=====movement workng code
+					// previous_lng = latLng_array[i][1];
+					// var stored_latLng = localStorage.getItem('save_latLng');
+					// parse_values = JSON.parse(stored_latLng);
 						
-					if (calc_angle == 0){
-						calc_angle +=1;
-						imgUrl = replaceImage(lng, previous_lng, lat, previous_lat, angle2, taxi_id);
-					}
-					else {
-						if(parse_values[taxi_id]){
-							saved_lat = parse_values[taxi_id]["previous_lat"];
-							saved_lng = parse_values[taxi_id]["previous_lng"];
-							p_lat = parseFloat(previous_lat).toFixed(7);
-							p_lng = parseFloat(previous_lng).toFixed(7);
-							if (p_lat == saved_lat && p_lng == saved_lng){
-								var stored_image = localStorage.getItem('save_image');
-								parse_image = JSON.parse(stored_image);
-								if (parse_image) {
-									imgUrl = parse_image[taxi_id];
-								}	
-							}
-							else{
-								imgUrl = replaceImage(lng, previous_lng, lat, previous_lat, angle2, taxi_id);
-							}
-						}	
-						else{
-							imgUrl = replaceImage(lng, previous_lng, lat, previous_lat, angle2, taxi_id);
-						}
-					}
+					var polyline_array = [];
+
+					directionsService.route({
+					    origin: new google.maps.LatLng(previous_lat,previous_lng),
+					    destination: new google.maps.LatLng(lat,lng),
+					    waypoints: [{
+					      stopover: false,
+					      location: new google.maps.LatLng(lat,lng)
+					    }],
+					    travelMode: google.maps.TravelMode.DRIVING
+					  }, function(response, status) {
+					    if (status === google.maps.DirectionsStatus.OK) {
+					    	//setTimeout(function(){
+					      directionsDisplay.setDirections(response);
+					      // var polyline = new google.maps.Polyline({
+					      //   path: [],
+					      //   strokeColor: '#0000FF',
+					      //   strokeWeight: 3
+					      // });
+					      var bounds = new google.maps.LatLngBounds();
+					      
+					      var legs = response.routes[0].legs;
+					      console.log("========service response ========");
+					      console.log("=======lat ========"+lat+"===lng===="+lng);
+					      console.log("=======previous_lat=="+previous_lat+"====previous_lng==="+previous_lng);
+					      
+					      findPolylineCoords(legs, lat, lng, previous_lat, previous_lng, polyline_array, imgUrl, taxi_id, angle2, bounds);
+					      hjkgfvkjhgvhgvchgchgc
+
+					      //polyline.setMap(map);
+					      //}, 100 * a);
+					    } else {
+					     // window.alert('Directions request failed due to ' + status);
+					    }
+					  });
+
+					// if (calc_angle == 0){
+					// 	calc_angle +=1;
+					// 	imgUrl = replaceImage(lng, previous_lng, lat, previous_lat, angle2, taxi_id);
+					// 	console.log("=======new image url on load====="+imgUrl);
+					// }
+					// else {
+					// 	if(parse_values[taxi_id]){
+					// 		saved_lat = parse_values[taxi_id]["previous_lat"];
+					// 		saved_lng = parse_values[taxi_id]["previous_lng"];
+					// 		p_lat = parseFloat(previous_lat).toFixed(7);
+					// 		p_lng = parseFloat(previous_lng).toFixed(7);
+					// 		console.log("====saved_lat===="+saved_lat+"===p_lat=="+p_lat);
+					// 		console.log("====saved_lng===="+saved_lng+"===p_lng=="+p_lng);
+					// 		if (p_lat == saved_lat && p_lng == saved_lng){
+					// 			var stored_image = localStorage.getItem('save_image');
+					// 			parse_image = JSON.parse(stored_image);
+					// 			if (parse_image) {
+					// 				imgUrl = parse_image[taxi_id];
+					// 			}	
+					// 			console.log("====ideal image url if part===="+imgUrl);
+					// 		}
+					// 		else{
+					// 			imgUrl = replaceImage(lng, previous_lng, lat, previous_lat, angle2, taxi_id);
+					// 			console.log("====moving===image url======="+imgUrl);
+					// 		}
+					// 	}	
+					// 	else{
+					// 		imgUrl = replaceImage(lng, previous_lng, lat, previous_lat, angle2, taxi_id);
+					// 	}
+					// }
 					
-					// Save the exact values of latitude and longitude
-					save_latLng[taxi_id] = {"previous_lat": parseFloat(previous_lat).toFixed(7), "previous_lng": parseFloat(previous_lng).toFixed(7)};
-					localStorage.setItem('save_latLng', JSON.stringify(save_latLng));
+					// // Save the exact values of latitude and longitude
+					// save_latLng[taxi_id] = {"previous_lat": parseFloat(previous_lat).toFixed(7), "previous_lng": parseFloat(previous_lng).toFixed(7)};
+					// localStorage.setItem('save_latLng', JSON.stringify(save_latLng));
 
 					//distance calculation comes here==================
-					prev_lat = parseFloat(previous_lat).toFixed(7);
-					prev_lng = parseFloat(previous_lng).toFixed(7);
-					var latLngA = new google.maps.LatLng(lat,lng);
-					var latLngB = new google.maps.LatLng(prev_lat, prev_lng);
-					//calculates distance between two coordinates in metre
-					dist = google.maps.geometry.spherical.computeDistanceBetween(latLngA, latLngB);
+					// prev_lat = parseFloat(previous_lat).toFixed(7);
+					// prev_lng = parseFloat(previous_lng).toFixed(7);
+					// var latLngA = new google.maps.LatLng(lat,lng);
+					// var latLngB = new google.maps.LatLng(prev_lat, prev_lng);
+					// //calculates distance between two coordinates in metre
+					// dist = google.maps.geometry.spherical.computeDistanceBetween(latLngA, latLngB);
 
-					var iconimage1 = {
-						url: imgUrl, // url
-						scaledSize: new google.maps.Size(60, 60), // scaled size
-						origin: new google.maps.Point(0,0), // origin
-						anchor: new google.maps.Point(30,30),// anchor
-					};
-					markers[taxi_id].setIcon(iconimage1);
+					// diff_lat = previous_lat - lat;
+					// diff_lng = previous_lng - lng;
+					// coord_distance = Math.sqrt(Math.pow(diff_lat,2)+Math.pow(diff_lng,2));
+					// coord_distance = coord_distance * 100000;
+
+					//if (dist > 5) {
+						// delete iconimage1;
+						// console.log("=======dist greater than 5m==========");
+						// imgUrl = angleCalculation(lng, previous_lng, lat, previous_lat, angle2);
+						// console.log("====returned===image url======="+imgUrl);
+						// save_image[taxi_id] = imgUrl;
+						// localStorage.setItem('save_image', JSON.stringify(save_image));
+					/*}
+					else {
+						console.log("=======dist lesser=========="+iconimage1);
+						var stored_image = localStorage.getItem('save_image');
+						parse_image = JSON.parse(stored_image);
+						if (parse_image) {
+							imgUrl = parse_image[taxi_id];
+						}
+						else{
+							imgUrl = "taxi_icons/taxi_0.svg";	
+						}
+						console.log("======image_url======"+imgUrl);
+					}*/
+					// var iconimage1 = {
+					// 	url: imgUrl, // url
+					// 	scaledSize: new google.maps.Size(60, 60), // scaled size
+					// 	origin: new google.maps.Point(0,0), // origin
+					// 	anchor: new google.maps.Point(30,30),// anchor
+					// };
+					// markers[taxi_id].setIcon(iconimage1);
 				}
 
 				var position = [previous_lat, previous_lng];
@@ -497,32 +823,53 @@ function a(){
 					markers[taxi_id].setMap(null);
 					delete markers[taxi_id]; 
 				}
-				else if( typeof markers[taxi_id] !== 'undefined' && status == "online"){
-					var result = [lat, lng];
-					taxi_marker = markers[taxi_id];
-					inc = 0;
-					deltaLat = (result[0] - position[0])/numDeltas;
-					deltaLng = (result[1] - position[1])/numDeltas;
-					if(accuracy <= 10){
-						moveMarker1(taxi_id,position,deltaLat,deltaLng,inc);
-					}
-					else if(accuracy > 10 && dist > 10){
-						moveMarker1(taxi_id,position,deltaLat,deltaLng,inc);
-					}
-				}
-			});
-		} 
+				// else if( typeof markers[taxi_id] !== 'undefined' && status == "online"){
+				// 	console.log("=======defined======online==========");
+				// 	var result = [lat, lng];
+				// 	taxi_marker = markers[taxi_id];
+				// 	inc = 0;
+				// 	deltaLat = (result[0] - position[0])/numDeltas;
+				// 	deltaLng = (result[1] - position[1])/numDeltas;
+				// 	console.log("==========distance value========"+dist);
+				// 	//saveDistanceAccuracy(dist, accuracy, res_count, dist_accuracy, taxi_id);
+				// 	if(accuracy <= 10){
+				// 		console.log("=========accuracy less than 10======");
+				// 		//moveMarker1(taxi_id,position,deltaLat,deltaLng,inc);
+				// 	}
+				// 	else if(accuracy > 10 && dist > 10){
+				// 		console.log("=========accuracy within 10 and 25======");
+				// 		//moveMarker1(taxi_id,position,deltaLat,deltaLng,inc);
+				// 	}
+				// }
+			//});
+}, 5000 * i)//=======movement working code
+    }(i));
+			}	
+		//} 
 	});	
+});	
+	//res_count += 1;			
 }
 
 // Start map updater
-map_updater = setInterval(a,3000); 
+// map_updater = setInterval(a,500000); 
+//map_updater = setInterval(a,50000000); 
 			
-    google.maps.event.addListener(marker, 'dragend', function (event) {
-    document.getElementById("lat").value = event.latLng.lat();
-    document.getElementById("long").value = event.latLng.lng();
-    geocodeLatLng(geocoder, map);
-    });
+function checkPolyline(taxi_id, position, lat, lng, previous_lat, previous_lng, inc){
+	var latlng = new google.maps.LatLng(lat, lng);
+	markers[taxi_id].setPosition(latlng);
+	if(inc!=numDeltas){
+		inc++;
+		setTimeout( function() { checkPolyline(taxi_id,position,lat,lng,previous_lat,previous_lng,inc); }, 30 );
+	}
+}
+
+
+            google.maps.event.addListener(marker, 'dragend', function (event) {
+            document.getElementById("lat").value = event.latLng.lat();
+            document.getElementById("long").value = event.latLng.lng();
+            geocodeLatLng(geocoder, map);
+            });
 
             // get coordinates from marker?
             google.maps.event.addListener(marker, 'dragend', function(evt){
@@ -596,7 +943,7 @@ function geocodeLatLng(geocoder, map) {
       if (results[1]) {
         // infowindow.setContent(results[1].formatted_address);
         // infowindow.open(map, marker);
-		console.log(results[0]);
+		// console.log(results[0]);
 		
         document.getElementById('inlocationfield').value = results[0].formatted_address;
 		lat = results[0].geometry.location.lat();
@@ -635,7 +982,7 @@ function geocodeLatLng(geocoder, map) {
 				placeLng =results[index].geometry.location.lng();
 				distanceFromPlaceInKm= distance(lat, lng, placeLat, placeLng, 'k');
 				distanceFromPlace =	"<option value='"+Number((distanceFromPlaceInKm*1000).toFixed(1)) + " mtrs to " +results[index].name+"'>"+Number((distanceFromPlaceInKm*1000).toFixed(1)) + " mtrs to " +results[index].name+"</option>";
-				console.log(distanceFromPlace);	
+				// console.log(distanceFromPlace);	
 				$('#list_of_nearby_places').append(distanceFromPlace);	
 				//console.log(currentLoc);
 				});				
@@ -643,7 +990,7 @@ function geocodeLatLng(geocoder, map) {
 			
 		pickup = results[0].formatted_address;  
 		localStorage.setItem("pickup",pickup);
-		console.log("Pickup:" + pickup);
+		// console.log("Pickup:" + pickup);
       } 
     else {
         // window.alert('No results found');
@@ -714,7 +1061,7 @@ $( "#chat_load_messages" ).load( "https://250taxi.com/db/journey/chat.php?task=s
         // console.log("New chat message from client");
     }
     if (chat_new_from_driver == "1") {
-        console.log("New chat message from driver");
+        // console.log("New chat message from driver");
         
             chat();
 
@@ -783,7 +1130,7 @@ var userid = localStorage.getItem("userid");
             
 $.get( "https://250taxi.com/db/message.php?&task=confirm&userid="+userid+"&messageid="+server_message_check+"", function(responsetext) {  
     
-console.log("Reset notification: "+responsetext+"");
+// console.log("Reset notification: "+responsetext+"");
     
 if (responsetext.includes("restart")) {
     setTimeout(function(){ 
@@ -797,7 +1144,7 @@ show_message(responsetext);
             
 }
 
-console.log("Server Status: " + server_status_check);
+// console.log("Server Status: " + server_status_check);
 
         if(server_status_check == "accepted") {
            status_accepted(); 
