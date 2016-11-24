@@ -253,7 +253,7 @@ var tick = 100; // milliseconds
 
 var lat; var lng; var loc; var flightPath=[];
 var polyline = null;
-		function animateCircle(line) {
+	function animateCircle(line) {
     var count = 0;
     window.setInterval(function() {
       count = (count + 1) % 200;
@@ -281,7 +281,6 @@ function set_position(angle2, taxi_id, taxiDatas){
 
 		var numDeltas = 100;
 		var delay = 10; 
-
 
 		function calculateAndDisplayRoute(directionsService, directionsDisplay,taxi_id) {
 			directionsService.route({
@@ -399,10 +398,10 @@ function callDirectionApi(taxi_id, angle2, imgUrl, taxiDatas){
 	taxiDatas[taxi_id].previous_lat = markers[taxi_id].getPosition().lat();
 	taxiDatas[taxi_id].previous_lng = markers[taxi_id].getPosition().lng();
 	window.polyline_array = [];
-
+	
 	//Direction service api call to find the route and steps of coordinates between starting and destination point
 	directionsService.route({
-    origin: new google.maps.LatLng(taxiDatas[taxi_id].previous_lat,taxiDatas[taxi_id].previous_lat),
+    origin: new google.maps.LatLng(taxiDatas[taxi_id].previous_lat,taxiDatas[taxi_id].previous_lng),
     destination: new google.maps.LatLng(taxiDatas[taxi_id].lat,taxiDatas[taxi_id].lng),
     waypoints: [{
       stopover: false,
@@ -417,16 +416,16 @@ function callDirectionApi(taxi_id, angle2, imgUrl, taxiDatas){
       window.move_count = 0;
       findPolylineCoords(legs, window.polyline_array, imgUrl, taxi_id, angle2, bounds, taxiDatas);
     }
-    else {
-    }
   });
 }
 
+window.real_time_data = [];
 function a(){
 	var lookup = [];		
 	$.get( "https://250taxi.com/db/journey/online_v2.php",  function( data ) {
 		if(data !="[]"){ 
 			var array = JSON.parse(data);
+			window.real_time_data.push(array);
 			var latprev = lat; var lngprev = lng; var flightPlanCoordinates;
 			var counter = 0;
 			/*************************** */
@@ -491,7 +490,7 @@ function a(){
 }
 
 // Start map updater
-map_updater = setInterval(a,5000); 
+map_updater = setInterval(a,3000); 
 			
             google.maps.event.addListener(marker, 'dragend', function (event) {
             document.getElementById("lat").value = event.latLng.lat();
