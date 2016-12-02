@@ -378,6 +378,17 @@ function moveTaxi(taxi_id, list, taxiDatas){
 	}
 }	
 
+function splitCoordinates (previous_coords, diff_in_lat, diff_in_lng, polyline_array, inc) {
+	polyline_array.push(previous_coords);
+	previous_coords[0] += diff_in_lat;
+	previous_coords[1] += diff_in_lng;
+	if(inc!= 2){
+		inc++;
+		setTimeout( function() { splitCoordinates(previous_coords, diff_in_lat, diff_in_lng, polyline_array, inc); }, 10 );
+	}
+	return polyline_array;
+}
+
 function findPolylineCoords(legs, polyline_array, imgUrl, taxi_id, angle2, bounds, taxiDatas){
 	window.polyline_array = [];
 	for (i = 0; i < legs.length; i++) {
@@ -391,7 +402,63 @@ function findPolylineCoords(legs, polyline_array, imgUrl, taxi_id, angle2, bound
     }
   }
   window.move_count = 0;
-	moveTaxi(taxi_id, window.polyline_array, taxiDatas);
+  //console.log("now poly = ", taxi_id, window.polyline_array)
+  animateMarker(markers, window.polyline_array, speed, taxiDatas);
+}
+
+function animateMarker(markers, coords, km_h, taxiDatas)
+{
+    var target = 0;
+    var km_h = km_h || 50;
+    
+    function goToPoint()
+    {
+        var step = (km_h * 1000 * delay) / 3600000; // in meters
+        var dest = new google.maps.LatLng(
+        coords[target][0], coords[target][1]);
+       // console.log(taxiDatas[taxi_id],"aaaaaaaaaaaa", taxi_id)
+        _previous_lat = taxiDatas[taxi_id]["previous_lat"]
+        _previous_lng = taxiDatas[taxi_id]["previous_lng"]
+       // console.log("target",taxi_id)
+        var source = new google.maps.LatLng(
+        _previous_lat, _previous_lng);
+
+        var distance =
+        google.maps.geometry.spherical.computeDistanceBetween(
+        dest, source); // in meters
+        var numStep = distance / step;
+        var i = 0;
+        var deltaLat = (coords[target][0] - taxiDatas[taxi_id].previous_lat) / numStep;
+        var deltaLng = (coords[target][1] - taxiDatas[taxi_id].previous_lng) / numStep;
+        
+        function moveMarker()
+        {
+            taxiDatas[taxi_id].previous_lat += deltaLat;
+            taxiDatas[taxi_id].previous_lng += deltaLng;
+            i += step;
+
+            if (i < distance)
+            {
+              markers[taxi_id].setPosition(new google.maps.LatLng(taxiDatas[taxi_id].previous_lat, taxiDatas[taxi_id].previous_lng));
+              setTimeout(moveMarker, delay);
+            }
+            else
+            {   
+            	markers[taxi_id].setPosition(dest);
+              target++; 	
+             console.log(111111111111111)
+              if (target == coords.length){ target = 0;
+               console.log(222222222222222222222)
+              	window.reached_destination[taxi_id] = true;
+              }
+              else{
+              	setTimeout(goToPoint, delay);
+              }
+            }
+        }
+        moveMarker();
+    }
+    goToPoint();
 }
 
 function callDirectionApi(taxi_id, angle2, imgUrl, taxiDatas){
@@ -409,67 +476,81 @@ function callDirectionApi(taxi_id, angle2, imgUrl, taxiDatas){
     }],
     travelMode: google.maps.TravelMode.DRIVING
   }, function(response, status) {
+  	console.log("google.maps.DirectionsStatus.OK",google.maps.DirectionsStatus.OK, status, taxi_id)
     if (status === google.maps.DirectionsStatus.OK) {
       directionsDisplay.setDirections(response);
       var bounds = new google.maps.LatLngBounds();
       var legs = response.routes[0].legs;
       window.move_count = 0;
+      console.log("ok enter", taxi_id, " taxiDatas = ",taxiDatas)
       findPolylineCoords(legs, window.polyline_array, imgUrl, taxi_id, angle2, bounds, taxiDatas);
     }
   });
 }
 
 window.real_time_data = [];
+window.reached_destination = {};
+
 function a(){
-	var lookup = [];		
+	
+	var lookup = [];
 	$.get( "https://250taxi.com/db/journey/online_v2.php",  function( data ) {
 		if(data !="[]"){ 
 			var array = JSON.parse(data);
 			window.real_time_data.push(array);
+			console.log("array = ",array);
 			var latprev = lat; var lngprev = lng; var flightPlanCoordinates;
 			var counter = 0;
+			var taxiDatas = {};
+			
 			/*************************** */
 			array.forEach(function(entry) {
+
 				var imgUrl;
 				var angle = 0;
 				var l = entry;
 				var loc = l.split(",");
 				var dist;
 				var accurate_coords;
-				
-				lat = loc[0];
-				lng = loc[1];
+
+			  lat = loc[0];
+			  lng = loc[1];
 				status = loc[2];
 				taxi_id = loc[3];
 				accuracy = loc[4];
 				driverName = loc[5];
 				driverSurname = loc[6];
-				var taxiDatas = {};
+				
+				var speed = 50; // km/h
+				var delay = 100;
+
+				
 				taxiDatas[taxi_id] = {"lat": lat, "lng": lng};
 				if( typeof markers[taxi_id] !== 'undefined' && status == "online"){
-					callDirectionApi(taxi_id, angle2, imgUrl, taxiDatas);
+					console.log("window.reached_destination[taxi_id] = ",window.reached_destination[taxi_id], " taxi_id ", taxi_id)
+					//if (window.reached_destination[taxi_id]){
+						window.reached_destination[taxi_id] = false;
+					  callDirectionApi(taxi_id, angle2, imgUrl, taxiDatas);
+					  console.log("0000000000000000000000000", taxi_id)
+					  // window.reached_destination[taxi_id] = true;
+					//}
 				}
 
 				if( typeof markers[taxi_id] === 'undefined' && status=="online") {
 					var pos = new google.maps.LatLng(lat, lng);
-					imgUrl = "taxi_icons/taxi_"+angle+".svg";
-					var iconimage1 = {
-						url: imgUrl, // url
-						scaledSize: new google.maps.Size(60, 60), // scaled size
-						origin: new google.maps.Point(0,0), // origin
-						anchor: new google.maps.Point(30,30),// anchor
-					};
 					markers[taxi_id] = new google.maps.Marker({
 						position: pos,
 						map: map,
 						draggable: false,
-						icon: iconimage1,
+						//icon: "taxi_icons/taxi_icon_marker.png",
 						id: taxi_id
 					});	
+					window.reached_destination[taxi_id] = true;
 				}
 				else if( typeof markers[taxi_id] !== 'undefined' && status == "offline"){
 					markers[taxi_id].setMap(null);
 					delete markers[taxi_id];
+					window.reached_destination[taxi_id] = true;
 				}
 				/**********************/
 				if( typeof markers[taxi_id] !== 'undefined'){
@@ -490,7 +571,9 @@ function a(){
 }
 
 // Start map updater
-map_updater = setInterval(a,3000); 
+//map_updater = setInterval(a,3000);
+map_updater = setInterval(function() { a(); }, 3000);
+
 			
             google.maps.event.addListener(marker, 'dragend', function (event) {
             document.getElementById("lat").value = event.latLng.lat();
