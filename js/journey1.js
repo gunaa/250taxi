@@ -71,7 +71,7 @@ if (activity == 'driver_has_accepted') {
     
     var userid = localStorage.getItem('userid');
     var pickdriver_id = localStorage.getItem("pickdriver_id");
-    
+    window.reached_destination = {};
     $.get( "https://250taxi.com/db/partner/taxi_comlink_journey.php?task=accepted&passenger_id="+userid+"&pickdriver_id="+pickdriver_id+"",      function( data ) {});
         
     var pickdriver_name = localStorage.getItem("pickdriver_name");
@@ -103,6 +103,26 @@ pickdriver_accuracy = document.getElementById('pickdriver_accuracy').innerHTML;
 pickdriver_name = document.getElementById('pickdriver_name').innerHTML;
     
 console.log("pickdriver_currentgpslat:"+pickdriver_currentgpslat+"\npickdriver_currentgpslong:"+pickdriver_currentgpslong+"\nlatitude:"+latitude+"\nlongitude:"+longitude+"");
+
+driverLatLng = {};
+/* 
+    For polyline implement between driver current pos and previous pos
+    Mainly for turning the vehicle
+*/
+if (typeof driverLatLng === "undefined"){
+    driverLatLng = {
+        "previous_lat": pickdriver_currentgpslat,
+        "previous_lng": pickdriver_currentgpslong,
+        "current_lat": pickdriver_currentgpslat,
+        "current_lng": pickdriver_currentgpslong
+    }
+}
+else{
+    driverLatLng["previous_lat"] = driverLatLng["current_lat"];
+    driverLatLng["previous_lng"] = driverLatLng["current_lng"];
+    driverLatLng["current_lat"] = pickdriver_currentgpslat;
+    driverLatLng["current_lng"] = pickdriver_currentgpslong;
+}
     
 var locations = [
     
@@ -120,25 +140,28 @@ else{
         lng : longitude
     });
 }*/
+    /* marker set here*/
     var infowindow = new google.maps.InfoWindow();
 	var numDeltas = 100;
 		var delay = 10; 
 		function moveMarker2(name,position,deltalat,deltalng,inc){
-			//alert(name+","+position+","+deltalat+","+deltalng+","+inc)
+			// console.log(name+","+position+","+deltalat+","+deltalng+","+inc);
 			if(typeof position !== 'undefined'){
-			deltaLat=deltalat;deltaLng=deltalng;
+			deltaLat=deltalat;
+            deltaLng=deltalng;
 			position=position;
 			position[0] += deltaLat;
 			position[1] += deltaLng;
+            // console.log(position[0], position[1]);
 			var latlng = new google.maps.LatLng(position[0], position[1]);
 			var key=name;
-			var q=marker[key];
+			var q = marker[key];
 			if(typeof q !== 'undefined'){
-			q.setPosition(latlng);
+			    q.setPosition(latlng);
 			}
 			if(inc!=numDeltas){
 				inc++;
-				setTimeout( function() { moveMarker2(name,position,deltalat,deltalng,inc); }, 50 );
+				setTimeout( function() { moveMarker2(name,position,deltalat,deltalng,inc); }, 20 );
 			}
 			}
 		}
@@ -147,14 +170,16 @@ else{
     for (i = 0; i < locations.length; i++) {
 
         var name=locations[i][0];
-		var lat=locations[i][1];var lng=locations[i][2]; var driver_accuracy=locations[i][4];
-		var previous_lat;var previous_lng;
-var iconimage = {
-    url: locations[i][3],
-    scaledSize: new google.maps.Size(90, 90), // scaled size
-    origin: new google.maps.Point(0,0), // origin
-    anchor: new google.maps.Point(43,90) // anchor
-};
+        var lat=locations[i][1];
+        var lng=locations[i][2];
+        var driver_accuracy=locations[i][4];
+        var previous_lat, previous_lng;
+        var iconimage = {
+            url: locations[i][3],
+            scaledSize: new google.maps.Size(90, 90), // scaled size
+            origin: new google.maps.Point(0,0), // origin
+            anchor: new google.maps.Point(43,90) // anchor
+        };
 if( typeof marker[name] !== 'undefined'){
 		 previous_lat = marker[name].getPosition().lat();
 		 previous_lng = marker[name].getPosition().lng();
@@ -217,20 +242,72 @@ var iconimage1 = {
        if( typeof marker[name] === 'undefined'){
       marker[name] = new google.maps.Marker({
         position: new google.maps.LatLng(locations[i][1], locations[i][2]),
-        icon: iconimage1,
+        // icon: iconimage1,
         map: map,
 		title:name,
 		draggable:false 
       });
 	   }else if( typeof marker[name] !== 'undefined'){
 
-		   var result1 = [lat, lng];
-		   inc = 0;
-			deltaLat = (result1[0] - position[0])/numDeltas;
-			deltaLng = (result1[1] - position[1])/numDeltas;
-			if(driver_accuracy<50){
-			moveMarker2(name,position,deltaLat,deltaLng,inc);
-			}
+            /* current lat lng */
+            // var result1 = [lat, lng];
+            // inc = 0;
+            // /* result - current lat lng , position - previous lat lng */
+            // deltaLat = (result1[0] - position[0])/numDeltas;
+            // deltaLng = (result1[1] - position[1])/numDeltas;
+            // if(driver_accuracy < 50){
+            //     /* c() to moveMarker always happens here */
+
+            //     moveMarker2(name,position,deltaLat,deltaLng,inc);
+            // }
+
+            //custom code
+            /* current lat lng */
+            console.log("driverLatLng: "+ driverLatLng);
+            console.log("name: "+ name);
+            if (name != "Me"){
+                callDirectionApi(driverLatLng,marker[name]);
+            }
+            else{
+                var result1 = [lat, lng];
+                console.log("result1"+ result1);
+                inc = 0;
+                /* result - current lat lng , position - previous lat lng */
+                deltaLat = (result1[0] - position[0])/numDeltas;
+                deltaLng = (result1[1] - position[1])/numDeltas;
+                console.log("deltaLat :" + deltaLat + " deltaLng: "+ deltaLng);
+                console.log(
+                    "position[0]previous_lat: " + position[0] +
+                     " position[1]: " + position[1]
+                    )
+                console.log("driver_accuracy : " + driver_accuracy);
+                if(driver_accuracy < 50){
+                    // c() to moveMarker always happens here
+
+                    moveMarker2(name,position,deltaLat,deltaLng,inc);
+                }
+            }
+
+            // var poly_coords_array = callDirectionApi(driverLatLng,marker[name]);
+            // console.log(poly_coords_array);
+            // var result1 = [lat, lng];
+            // console.log("result1"+ result1);
+            // inc = 0;
+            // /* result - current lat lng , position - previous lat lng */
+            // deltaLat = (result1[0] - position[0])/numDeltas;
+            // deltaLng = (result1[1] - position[1])/numDeltas;
+            // console.log("deltaLat :" + deltaLat + " deltaLng: "+ deltaLng);
+            // console.log(
+            //     "position[0]previous_lat: " + position[0] +
+            //      " position[1]: " + position[1]
+            //     )
+            // console.log("driver_accuracy : " + driver_accuracy);
+            // if(driver_accuracy < 50){
+            //     // c() to moveMarker always happens here
+
+            //     moveMarker2(name,position,deltaLat,deltaLng,inc);
+            // }
+
 	   }
 
 	   
@@ -256,7 +333,7 @@ var iconimage1 = {
 	}
 	journey_updater=setInterval(function(){ 
         c();
-    }, 15000);
+    }, 1500);
 }
 function journey_update_map() {
     if( typeof marker["Driver"] !== 'undefined') {
@@ -307,7 +384,7 @@ $( "#driveroverlay_show_details" ).load( "https://250taxi.com/db/partner/taxi_co
     
 pickdriver_currentgpslat = document.getElementById('pickdriver_currentgpslat').innerHTML;
 pickdriver_currentgpslong = document.getElementById('pickdriver_currentgpslong').innerHTML;
-    
+
 console.log("pickdriver_currentgpslat:"+pickdriver_currentgpslat+"\npickdriver_currentgpslong:"+pickdriver_currentgpslong+"\nlatitude:"+latitude+"\nlongitude:"+longitude+"");
     
 var locations = [
@@ -589,4 +666,136 @@ document.getElementById("journey_fare_display_fare_count").innerHTML = localStor
 
 });
 
+}
+
+// driverLatLng previous_lat, previous_lng, current_lat, current_lng
+function callDirectionApi(driverLatLng, marker){
+
+    driverLatLng.previous_lat = marker.getPosition().lat();
+    driverLatLng.previous_lng = marker.getPosition().lng();
+
+    // taxiDatas[taxi_id].previous_lat = 13.097138;
+    // taxiDatas[taxi_id].previous_lng = 80.200193;
+    // alert(taxiDatas[taxi_id].previous_lat, taxiDatas[taxi_id].previous_lng);
+
+    var polyline_array = [];
+    //Direction service api call to find the route and steps of coordinates between starting and destination point
+    directionsService.route({
+    //previous lat lng
+    origin: new google.maps.LatLng(driverLatLng.previous_lat,driverLatLng.previous_lng),
+    //current lat lng
+    destination: new google.maps.LatLng(
+        driverLatLng.current_lat,
+        driverLatLng.current_lng
+        ),
+    //current lat lng
+    waypoints: [{
+        stopover: false,
+        location: new google.maps.LatLng(
+            driverLatLng.current_lat,
+            driverLatLng.current_lng
+        )
+    }],
+    travelMode: google.maps.TravelMode.DRIVING
+  }, function(response, status) {
+    console.log("google.maps.DirectionsStatus.OK",google.maps.DirectionsStatus.OK, status)
+    if (status === google.maps.DirectionsStatus.OK) {
+      directionsDisplay.setDirections(response);
+      var bounds = new google.maps.LatLngBounds();
+      console.log(bounds);
+      var legs = response.routes[0].legs;
+      window.move_count = 0;
+      console.log("findPolylineCoords before call");
+      // polyline_array = findPolylineCoords(legs, polyline_array, bounds, marker);
+      findPolylineCoords(legs, polyline_array, bounds, marker, driverLatLng);
+    }
+  });
+    // return polyline_array;
+}
+
+function findPolylineCoords(legs, polyline_array, bounds, marker, driverLatLng){
+    var polyline_array = [];
+    for (i = 0; i < legs.length; i++) {
+    var steps = legs[i].steps;
+    for (j = 0; j < steps.length; j++) {
+      var nextSegment = steps[j].path;
+      for (k = 0; k < nextSegment.length; k++) {
+        polyline_array.push(splitValues(nextSegment[k]));
+        bounds.extend(nextSegment[k]);
+        console.log(polyline_array);
+      }
+    }
+  }
+  window.move_count = 0;
+  // return polyline_array;
+  // console.log("now poly = ", taxi_id, window.polyline_array)
+  animateMarker(marker, polyline_array, driverLatLng);
+
+}
+
+function splitValues(nextSegment){
+    var regExp = /\(([^)]+)\)/;
+    var matches = regExp.exec(nextSegment);
+    return matches[1].split(",");
+}
+
+function animateMarker(markers, coords, driverLatLng)
+{
+    var target = 0;
+    var km_h = km_h || 50;
+    var delay = 300;
+
+    function goToPoint()
+    {
+        var step = (km_h * 1000 * delay) / 3600000; // in meters
+        var dest = new google.maps.LatLng(
+        coords[target][0], coords[target][1]);
+       // console.log(taxiDatas[taxi_id],"aaaaaaaaaaaa", taxi_id)
+        _previous_lat = driverLatLng.previous_lat;
+        _previous_lng = driverLatLng.previous_lng;
+        // alert(_previous_lat+" "+_previous_lng)
+       // console.log("target",taxi_id)
+        console.log(_previous_lat+ "  " + _previous_lng);
+        var source = new google.maps.LatLng(
+        _previous_lat, _previous_lng);
+
+        var distance =
+        google.maps.geometry.spherical.computeDistanceBetween(
+        dest, source); // in meters
+        var numStep = distance / step;
+        var i = 0;
+        var deltaLat = (coords[target][0] - driverLatLng.previous_lat) / numStep;
+        var deltaLng = (coords[target][1] - driverLatLng.previous_lng) / numStep;
+
+        function moveMarker()
+        {
+            driverLatLng.previous_lat += deltaLat;
+            driverLatLng.previous_lng += deltaLng;
+            console.log(
+                "driverLatLng.previous_lat: " + driverLatLng.previous_lat +
+                "driverLatLng.previous_lng: " + driverLatLng.previous_lng
+                )
+            i += step;
+
+            if (i < distance)
+            {
+              markers.setPosition(new google.maps.LatLng(driverLatLng.previous_lat, driverLatLng.previous_lng));
+              setTimeout(moveMarker, delay);
+            }
+            else {
+                markers.setPosition(dest);
+                target++;
+                console.log(111111111111111)
+                if (target == coords.length){ target = 0;
+                    console.log(222222222222222222222)
+                    window.reached_destination[localStorage.getItem("pickdriver_id")] = true;
+                }
+                else{
+                    setTimeout(goToPoint, delay);
+                }
+            }
+        }
+        moveMarker();
+    }
+    goToPoint();
 }
