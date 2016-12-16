@@ -410,7 +410,7 @@ function animateMarker(markers, coords, km_h, taxiDatas)
 {
     var target = 0;
     var km_h = km_h || 50;
-    
+
     function goToPoint()
     {
         var step = (km_h * 1000 * delay) / 3600000; // in meters
@@ -419,7 +419,9 @@ function animateMarker(markers, coords, km_h, taxiDatas)
        // console.log(taxiDatas[taxi_id],"aaaaaaaaaaaa", taxi_id)
         _previous_lat = taxiDatas[taxi_id]["previous_lat"]
         _previous_lng = taxiDatas[taxi_id]["previous_lng"]
+        // alert(_previous_lat+" "+_previous_lng)
        // console.log("target",taxi_id)
+        console.log(_previous_lat+ "  " + _previous_lng);
         var source = new google.maps.LatLng(
         _previous_lat, _previous_lng);
 
@@ -464,6 +466,11 @@ function animateMarker(markers, coords, km_h, taxiDatas)
 function callDirectionApi(taxi_id, angle2, imgUrl, taxiDatas){
 	taxiDatas[taxi_id].previous_lat = markers[taxi_id].getPosition().lat();
 	taxiDatas[taxi_id].previous_lng = markers[taxi_id].getPosition().lng();
+
+	// taxiDatas[taxi_id].previous_lat = 13.097138;
+	// taxiDatas[taxi_id].previous_lng = 80.200193;
+    // alert(taxiDatas[taxi_id].previous_lat, taxiDatas[taxi_id].previous_lng);
+
 	window.polyline_array = [];
 	
 	//Direction service api call to find the route and steps of coordinates between starting and destination point
@@ -494,6 +501,8 @@ window.reached_destination = {};
 function a(){
 	
 	var lookup = [];
+    // "http://192.168.1.88:8500/get_taxi_details/"
+	// "https://250taxi.com/db/journey/online_v2.php"
 	$.get( "https://250taxi.com/db/journey/online_v2.php",  function( data ) {
 		if(data !="[]"){ 
 			var array = JSON.parse(data);
@@ -513,23 +522,30 @@ function a(){
 				var dist;
 				var accurate_coords;
 
-			  lat = loc[0];
-			  lng = loc[1];
+			  lat = loc[0]; //13.096610;//13.096975;//13.097049;
+			  lng = loc[1]; //80.200150;//80.200443;
+              // lat = 13.096610; //13.096610;//13.096975;//13.097049;
+              // lng = 80.200150; //80.200150;//80.200443;
 				status = loc[2];
 				taxi_id = loc[3];
 				accuracy = loc[4];
 				driverName = loc[5];
 				driverSurname = loc[6];
+
+                // if ( typeof taxiDatas === 'undefined' ){
+                //     taxiDatas = {};
+                // }
+                taxiDatas = {};
 				
 				var speed = 50; // km/h
 				var delay = 100;
 
 				
 				taxiDatas[taxi_id] = {"lat": lat, "lng": lng};
-				if( typeof markers[taxi_id] !== 'undefined' && status == "online"){
+				if(typeof markers[taxi_id] !== 'undefined' && status == "online"){
 					console.log("window.reached_destination[taxi_id] = ",window.reached_destination[taxi_id], " taxi_id ", taxi_id)
 					//if (window.reached_destination[taxi_id]){
-						window.reached_destination[taxi_id] = false;
+						// window.reached_destination[taxi_id] = false;
 					  callDirectionApi(taxi_id, angle2, imgUrl, taxiDatas);
 					  console.log("0000000000000000000000000", taxi_id)
 					  // window.reached_destination[taxi_id] = true;
@@ -545,12 +561,12 @@ function a(){
 						//icon: "taxi_icons/taxi_icon_marker.png",
 						id: taxi_id
 					});	
-					window.reached_destination[taxi_id] = true;
+					// window.reached_destination[taxi_id] = true;
 				}
 				else if( typeof markers[taxi_id] !== 'undefined' && status == "offline"){
 					markers[taxi_id].setMap(null);
 					delete markers[taxi_id];
-					window.reached_destination[taxi_id] = true;
+					// window.reached_destination[taxi_id] = true;
 				}
 				/**********************/
 				if( typeof markers[taxi_id] !== 'undefined'){
